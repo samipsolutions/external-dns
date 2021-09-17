@@ -147,23 +147,54 @@ func (p *Plan) Calculate() *Plan {
 
 	for _, topRow := range t.rows {
 		for _, row := range topRow {
-			if row.current == nil { //dns name not taken
-				changes.Create = append(changes.Create, t.resolver.ResolveCreate(row.candidates))
-			}
-			if row.current != nil && len(row.candidates) == 0 {
-				changes.Delete = append(changes.Delete, row.current)
-			}
-
-			// TODO: allows record type change, which might not be supported by all dns providers
-			if row.current != nil && len(row.candidates) > 0 { //dns name is taken
-				update := t.resolver.ResolveUpdate(row.current, row.candidates)
-				// compare "update" to "current" to figure out if actual update is required
-				if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
-					inheritOwner(row.current, update)
-					changes.UpdateNew = append(changes.UpdateNew, update)
-					changes.UpdateOld = append(changes.UpdateOld, row.current)
+			RecordTypeAAAA := []*endpoint.Endpoint{}
+			RecordTypeA := []*endpoint.Endpoint{}
+			for _, record := range row.candidates {
+				if record.RecordType == "A" {
+					RecordTypeA = append(RecordTypeA, record)
 				}
-				continue
+				if record.RecordType == "AAAA" {
+					RecordTypeAAAA = append(RecordTypeAAAA, record)
+				}
+			}
+			// TODO: Handle deleting only one record type
+			if row.current != nil && len(RecordTypeAAAA) == 0 && len(RecordTypeA) == 0 {
+				current := row.current.DeepCopy()
+				currentAAAA := row.current.DeepCopy()
+				current.RecordType = endpoint.RecordTypeA
+				currentAAAA.RecordType = endpoint.RecordTypeAAAA
+				changes.Delete = append(changes.Delete, current)
+				changes.Delete = append(changes.Delete, currentAAAA)
+			}
+			if len(RecordTypeA) > 0 {
+				if row.current == nil { //dns name not taken
+					changes.Create = append(changes.Create, t.resolver.ResolveCreate(RecordTypeA))
+				}
+				// TODO: allows record type change, which might not be supported by all dns providers
+				if row.current != nil && len(RecordTypeA) > 0 { //dns name is taken
+					update := t.resolver.ResolveUpdate(row.current, RecordTypeA)
+					// compare "update" to "current" to figure out if actual update is required
+					if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
+						inheritOwner(row.current, update)
+						changes.UpdateNew = append(changes.UpdateNew, update)
+						changes.UpdateOld = append(changes.UpdateOld, row.current)
+					}
+				}
+			}
+			if len(RecordTypeAAAA) > 0 {
+				if row.current == nil { //dns name not taken
+					changes.Create = append(changes.Create, t.resolver.ResolveCreate(RecordTypeAAAA))
+				}
+				// TODO: allows record type change, which might not be supported by all dns providers
+				if row.current != nil && len(RecordTypeAAAA) > 0 { //dns name is taken
+					update := t.resolver.ResolveUpdate(row.current, RecordTypeAAAA)
+					// compare "update" to "current" to figure out if actual update is required
+					if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
+						inheritOwner(row.current, update)
+						changes.UpdateNew = append(changes.UpdateNew, update)
+						changes.UpdateOld = append(changes.UpdateOld, row.current)
+					}
+				}
 			}
 		}
 	}
