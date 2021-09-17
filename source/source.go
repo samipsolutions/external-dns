@@ -295,7 +295,6 @@ func endpointsForHostname(hostname string, targets endpoint.Targets, ttl endpoin
 		}
 		endpoints = append(endpoints, epCNAME)
 	}
-
 	return endpoints
 }
 

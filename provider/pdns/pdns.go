@@ -486,9 +486,3 @@ func (p *PDNSProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) 
 	log.Debugf("Changes pushed out to PowerDNS in %s\n", time.Since(startTime))
 	return nil
 }
-
-// isIPv6String returns if ip is IPv6.
-func isIPv6String(ip string) bool {
-	netIP := net.ParseIP(ip)
-	return netIP != nil && netIP.To4() == nil
-}
