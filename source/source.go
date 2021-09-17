@@ -235,7 +235,7 @@ func endpointsForHostname(hostname string, targets endpoint.Targets, ttl endpoin
 	var endpoints []*endpoint.Endpoint
 
 	var aTargets endpoint.Targets
-	var aaaTargets endpoint.Targets
+	var aaaaTargets endpoint.Targets
 	var cnameTargets endpoint.Targets
 
 	for _, t := range targets {
@@ -248,7 +248,7 @@ func endpointsForHostname(hostname string, targets endpoint.Targets, ttl endpoin
 			}
 		case endpoint.RecordTypeAAAA:
 			if isIPv6String(t) {
-				aaaTargets = append(aaaTargets, t)
+				aaaaTargets = append(aaaaTargets, t)
 			} else {
 				continue
 			}
@@ -270,10 +270,10 @@ func endpointsForHostname(hostname string, targets endpoint.Targets, ttl endpoin
 		endpoints = append(endpoints, epA)
 	}
 
-	if len(aaaTargets) > 0 {
+	if len(aaaaTargets) > 0 {
 		epAAAA := &endpoint.Endpoint{
 			DNSName:          strings.TrimSuffix(hostname, "."),
-			Targets:          aaaTargets,
+			Targets:          aaaaTargets,
 			RecordTTL:        ttl,
 			RecordType:       endpoint.RecordTypeAAAA,
 			Labels:           endpoint.NewLabels(),
@@ -295,7 +295,6 @@ func endpointsForHostname(hostname string, targets endpoint.Targets, ttl endpoin
 		}
 		endpoints = append(endpoints, epCNAME)
 	}
-
 	return endpoints
 }
 

@@ -108,7 +108,6 @@ func (t planTable) addCurrent(e *endpoint.Endpoint) {
 }
 
 func (t planTable) addCandidate(e *endpoint.Endpoint) {
-	// TODO: Implement proper IPv6 support here
 	dnsName := normalizeDNSName(e.DNSName)
 	if _, ok := t.rows[dnsName]; !ok {
 		t.rows[dnsName] = make(map[string]*planTableRow)
@@ -147,23 +146,54 @@ func (p *Plan) Calculate() *Plan {
 
 	for _, topRow := range t.rows {
 		for _, row := range topRow {
-			if row.current == nil { //dns name not taken
-				changes.Create = append(changes.Create, t.resolver.ResolveCreate(row.candidates))
-			}
-			if row.current != nil && len(row.candidates) == 0 {
-				changes.Delete = append(changes.Delete, row.current)
-			}
-
-			// TODO: allows record type change, which might not be supported by all dns providers
-			if row.current != nil && len(row.candidates) > 0 { //dns name is taken
-				update := t.resolver.ResolveUpdate(row.current, row.candidates)
-				// compare "update" to "current" to figure out if actual update is required
-				if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
-					inheritOwner(row.current, update)
-					changes.UpdateNew = append(changes.UpdateNew, update)
-					changes.UpdateOld = append(changes.UpdateOld, row.current)
+			RecordTypeAAAA := []*endpoint.Endpoint{}
+			RecordTypeA := []*endpoint.Endpoint{}
+			for _, record := range row.candidates {
+				if record.RecordType == "A" {
+					RecordTypeA = append(RecordTypeA, record)
 				}
-				continue
+				if record.RecordType == "AAAA" {
+					RecordTypeAAAA = append(RecordTypeAAAA, record)
+				}
+			}
+			// TODO: Handle deleting only one record type
+			if row.current != nil && len(RecordTypeAAAA) == 0 && len(RecordTypeA) == 0 {
+				current := row.current.DeepCopy()
+				currentAAAA := row.current.DeepCopy()
+				current.RecordType = endpoint.RecordTypeA
+				currentAAAA.RecordType = endpoint.RecordTypeAAAA
+				changes.Delete = append(changes.Delete, current)
+				changes.Delete = append(changes.Delete, currentAAAA)
+			}
+			if len(RecordTypeA) > 0 {
+				if row.current == nil { //dns name not taken
+					changes.Create = append(changes.Create, t.resolver.ResolveCreate(RecordTypeA))
+				}
+				// TODO: allows record type change, which might not be supported by all dns providers
+				if row.current != nil && len(RecordTypeA) > 0 { //dns name is taken
+					update := t.resolver.ResolveUpdate(row.current, RecordTypeA)
+					// compare "update" to "current" to figure out if actual update is required
+					if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
+						inheritOwner(row.current, update)
+						changes.UpdateNew = append(changes.UpdateNew, update)
+						changes.UpdateOld = append(changes.UpdateOld, row.current)
+					}
+				}
+			}
+			if len(RecordTypeAAAA) > 0 {
+				if row.current == nil { //dns name not taken
+					changes.Create = append(changes.Create, t.resolver.ResolveCreate(RecordTypeAAAA))
+				}
+				// TODO: allows record type change, which might not be supported by all dns providers
+				if row.current != nil && len(RecordTypeAAAA) > 0 { //dns name is taken
+					update := t.resolver.ResolveUpdate(row.current, RecordTypeAAAA)
+					// compare "update" to "current" to figure out if actual update is required
+					if shouldUpdateTTL(update, row.current) || targetChanged(update, row.current) || p.shouldUpdateProviderSpecific(update, row.current) {
+						inheritOwner(row.current, update)
+						changes.UpdateNew = append(changes.UpdateNew, update)
+						changes.UpdateOld = append(changes.UpdateOld, row.current)
+					}
+				}
 			}
 		}
 	}
@@ -242,7 +272,6 @@ func (p *Plan) shouldUpdateProviderSpecific(desired, current *endpoint.Endpoint)
 // Per RFC 1034, CNAME records conflict with all other records - it is the
 // only record with this property. The behavior of the planner may need to be
 // made more sophisticated to codify this.
-// TODO: Proper IPv6 support aka AAAA records
 func filterRecordsForPlan(records []*endpoint.Endpoint, domainFilter endpoint.DomainFilterInterface, managedRecords []string) []*endpoint.Endpoint {
 	filtered := []*endpoint.Endpoint{}
 
