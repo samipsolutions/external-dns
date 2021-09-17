@@ -311,11 +311,16 @@ func (p *PDNSProvider) ConvertEndpointsToZones(eps []*endpoint.Endpoint, changet
 				// per (ep.DNSName, ep.RecordType) tuple, which holds true for
 				// external-dns v5.0.0-alpha onwards
 				records := []pgo.Record{}
+				//records6 := []pgo.Record{}
 				for _, t := range ep.Targets {
 					if ep.RecordType == "CNAME" {
 						t = provider.EnsureTrailingDot(t)
 					}
-
+					//					if isIPv6String(t) {
+					//						records6 = append(records6, pgo.Record{Content: t})
+					//					}else {
+					//						records = append(records, pgo.Record{Content: t})
+					//					}
 					records = append(records, pgo.Record{Content: t})
 				}
 				rrset := pgo.RrSet{
@@ -480,4 +485,10 @@ func (p *PDNSProvider) ApplyChanges(ctx context.Context, changes *plan.Changes) 
 	}
 	log.Debugf("Changes pushed out to PowerDNS in %s\n", time.Since(startTime))
 	return nil
+}
+
+// isIPv6String returns if ip is IPv6.
+func isIPv6String(ip string) bool {
+	netIP := net.ParseIP(ip)
+	return netIP != nil && netIP.To4() == nil
 }
