@@ -35,7 +35,6 @@ type PlanTestSuite struct {
 	fooV2CnameNoLabel                *endpoint.Endpoint
 	fooV3CnameSameResource           *endpoint.Endpoint
 	fooA5                            *endpoint.Endpoint
-	fooAAAA                          *endpoint.Endpoint
 	bar127A                          *endpoint.Endpoint
 	bar127AWithTTL                   *endpoint.Endpoint
 	bar127AWithProviderSpecificTrue  *endpoint.Endpoint
@@ -102,14 +101,6 @@ func (suite *PlanTestSuite) SetupTest() {
 		RecordType: "A",
 		Labels: map[string]string{
 			endpoint.ResourceLabelKey: "ingress/default/foo-5",
-		},
-	}
-	suite.fooAAAA = &endpoint.Endpoint{
-		DNSName:    "foo",
-		Targets:    endpoint.Targets{"2001:DB8::1"},
-		RecordType: "AAAA",
-		Labels: map[string]string{
-			endpoint.ResourceLabelKey: "ingress/default/foo-AAAA",
 		},
 	}
 	suite.bar127A = &endpoint.Endpoint{
@@ -248,7 +239,7 @@ func (suite *PlanTestSuite) TestSyncSecondRound() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -270,7 +261,7 @@ func (suite *PlanTestSuite) TestSyncSecondRoundMigration() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -292,7 +283,7 @@ func (suite *PlanTestSuite) TestSyncSecondRoundWithTTLChange() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -314,7 +305,7 @@ func (suite *PlanTestSuite) TestSyncSecondRoundWithProviderSpecificChange() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -339,7 +330,7 @@ func (suite *PlanTestSuite) TestSyncSecondRoundWithProviderSpecificDefaultFalse(
 		PropertyComparator: func(name, previous, current string) bool {
 			return CompareBoolean(false, name, previous, current)
 		},
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -395,7 +386,7 @@ func (suite *PlanTestSuite) TestSyncSecondRoundWithOwnerInherited() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -438,7 +429,7 @@ func (suite *PlanTestSuite) TestDifferentTypes() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -460,7 +451,7 @@ func (suite *PlanTestSuite) TestIgnoreTXT() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -503,7 +494,7 @@ func (suite *PlanTestSuite) TestRemoveEndpoint() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -525,54 +516,7 @@ func (suite *PlanTestSuite) TestRemoveEndpointWithUpsert() {
 		Policies:       []Policy{&UpsertOnlyPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
-	}
-
-	changes := p.Calculate().Changes
-	validateEntries(suite.T(), changes.Create, expectedCreate)
-	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
-	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
-	validateEntries(suite.T(), changes.Delete, expectedDelete)
-}
-
-//TODO: remove once multiple-target per endpoint is supported
-func (suite *PlanTestSuite) TestDuplicatedEndpointsForSameResourceReplace() {
-	current := []*endpoint.Endpoint{suite.fooV3CnameSameResource, suite.bar192A}
-	desired := []*endpoint.Endpoint{suite.fooV1Cname, suite.fooV3CnameSameResource}
-	expectedCreate := []*endpoint.Endpoint{}
-	expectedUpdateOld := []*endpoint.Endpoint{suite.fooV3CnameSameResource}
-	expectedUpdateNew := []*endpoint.Endpoint{suite.fooV1Cname}
-	expectedDelete := []*endpoint.Endpoint{suite.bar192A}
-
-	p := &Plan{
-		Policies:       []Policy{&SyncPolicy{}},
-		Current:        current,
-		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
-	}
-
-	changes := p.Calculate().Changes
-	validateEntries(suite.T(), changes.Create, expectedCreate)
-	validateEntries(suite.T(), changes.UpdateNew, expectedUpdateNew)
-	validateEntries(suite.T(), changes.UpdateOld, expectedUpdateOld)
-	validateEntries(suite.T(), changes.Delete, expectedDelete)
-}
-
-//TODO: remove once multiple-target per endpoint is supported
-func (suite *PlanTestSuite) TestDuplicatedEndpointsForSameResourceRetain() {
-
-	current := []*endpoint.Endpoint{suite.fooV1Cname, suite.bar192A}
-	desired := []*endpoint.Endpoint{suite.fooV1Cname, suite.fooV3CnameSameResource}
-	expectedCreate := []*endpoint.Endpoint{}
-	expectedUpdateOld := []*endpoint.Endpoint{}
-	expectedUpdateNew := []*endpoint.Endpoint{}
-	expectedDelete := []*endpoint.Endpoint{suite.bar192A}
-
-	p := &Plan{
-		Policies:       []Policy{&SyncPolicy{}},
-		Current:        current,
-		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -595,7 +539,7 @@ func (suite *PlanTestSuite) TestMultipleRecordsSameNameDifferentSetIdentifier() 
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -618,7 +562,7 @@ func (suite *PlanTestSuite) TestSetIdentifierUpdateCreatesAndDeletes() {
 		Policies:       []Policy{&SyncPolicy{}},
 		Current:        current,
 		Desired:        desired,
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -642,7 +586,7 @@ func (suite *PlanTestSuite) TestDomainFiltersInitial() {
 		Current:        current,
 		Desired:        desired,
 		DomainFilter:   endpoint.NewDomainFilterWithExclusions([]string{"domain.tld"}, []string{"ex.domain.tld"}),
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -666,7 +610,7 @@ func (suite *PlanTestSuite) TestDomainFiltersUpdate() {
 		Current:        current,
 		Desired:        desired,
 		DomainFilter:   endpoint.NewDomainFilterWithExclusions([]string{"domain.tld"}, []string{"ex.domain.tld"}),
-		ManagedRecords: []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+		ManagedRecords: []string{endpoint.RecordTypeA,endpoint.RecordTypeCNAME},
 	}
 
 	changes := p.Calculate().Changes
@@ -864,7 +808,7 @@ func TestShouldUpdateProviderSpecific(tt *testing.T) {
 				Current:            []*endpoint.Endpoint{test.current},
 				Desired:            []*endpoint.Endpoint{test.desired},
 				PropertyComparator: test.propertyComparator,
-				ManagedRecords:     []string{endpoint.RecordTypeA, endpoint.RecordTypeAAAA, endpoint.RecordTypeCNAME},
+				ManagedRecords:     []string{endpoint.RecordTypeA, endpoint.RecordTypeCNAME},
 			}
 			b := plan.shouldUpdateProviderSpecific(test.desired, test.current)
 			assert.Equal(t, test.shouldUpdate, b)
