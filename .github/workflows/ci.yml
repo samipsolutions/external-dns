@@ -2,7 +2,7 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches: [ release-with-v6 ]
   pull_request:
     branches: [ master ]
 
